@@ -97,7 +97,7 @@ export class AuthProvider {
       }),
       headers: {
         "Content-Type": "application/json",
-        cookie: authResponse.headers.raw()["set-cookie"],
+        cookie: cookies.join('; '),
         "X-XSRF-TOKEN": xsrfToken
       }
     }).then(this.validate);
@@ -112,7 +112,7 @@ export class AuthProvider {
       }),
       headers: {
         "Content-Type": "application/json",
-        cookie: authResponse.headers.raw()["set-cookie"],
+        cookie: cookies.join('; '),
         "X-XSRF-TOKEN": xsrfToken
       }
     }).then(async response => {
@@ -124,7 +124,7 @@ export class AuthProvider {
       redirect: "manual",
       follow: 0,
       headers: {
-        cookie: authCookies
+        cookie: [...cookies, ...authCookies].join('; ')
       }
     }).then(response => {
       const url = response.headers.get("location");
