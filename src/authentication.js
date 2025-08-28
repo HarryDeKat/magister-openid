@@ -56,7 +56,7 @@ export class AuthProvider {
     this.client[custom.clock_tolerance] = 5;
 
     const authUrl = this.client.authorizationUrl({
-      scope: 'openid',
+      scope: "openid profile offline_access",
       code_challenge: codeChallenge,
       code_challenge_method: "S256",
       acr_values: `tenant:${this.tenant}`,
@@ -97,12 +97,12 @@ export class AuthProvider {
       }),
       headers: {
         "Content-Type": "application/json",
-        cookie: authResponse.headers.raw()["set-cookie"],
+        cookie: cookies.join('; '),
         "X-XSRF-TOKEN": xsrfToken
       }
     }).then(this.validate);
 
-    const authCookies = await fetch(`${issuerUrl}/challenges/password`, {
+    const passwordResponse = await fetch(`${issuerUrl}/challenges/password`, {
       method: "post",
       body: JSON.stringify({
         authCode,
@@ -112,19 +112,27 @@ export class AuthProvider {
       }),
       headers: {
         "Content-Type": "application/json",
-        cookie: authResponse.headers.raw()["set-cookie"],
+        cookie: cookies.join('; '),
         "X-XSRF-TOKEN": xsrfToken
       }
-    }).then(async response => {
-      await this.validate(response);
-      return response.headers.raw()["set-cookie"];
     });
 
-    return fetch(`${issuerUrl}${returnUrl}`, {
+    await this.validate(passwordResponse);
+    const passwordData = await passwordResponse.json();
+    const redirectUrl = passwordData.redirectURL;
+
+    if (!redirectUrl) {
+      throw new Error("Password response did not contain a redirectURL.");
+    }
+
+    const newCookies = passwordResponse.headers.raw()["set-cookie"] || [];
+    const finalCookies = [...cookies, ...newCookies];
+
+    return fetch(`${issuerUrl}${redirectUrl}`, {
       redirect: "manual",
       follow: 0,
       headers: {
-        cookie: authCookies
+        cookie: finalCookies.join('; ')
       }
     }).then(response => {
       const url = response.headers.get("location");
